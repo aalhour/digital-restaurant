@@ -213,10 +213,10 @@ As Eric puts it into numbers, the 'core domain' should deliver about 20% of the 
 When you make all types in your application public, the packages are simply an organisation mechanism (a grouping, like folders) rather than being used for encapsulation. Since public types can be used from anywhere in a codebase, you can effectively ignore the packages.
 
 The way Java types are placed into packages (components) can actually make a huge difference to how accessible (or inaccessible) those types can be when Java's access modifiers are applied appropriately. Bundling the types into a smaller number of packages allows for something a little more radical. Since there are fewer inter-package dependencies, you can start to restrict the access modifiers.
-Kotlin language doesn't have 'package' modifer as Java has. It has 'internal' modifer which restricts accessiblity of the class to the whole module (compile unit, jar file...). This makes a difference, and you have more freedom to structure your source code, and provide good public API of the component.
+Kotlin language doesn't have 'package' modifier as Java has. It has 'internal' modifier which restricts accessiblity of the class to the whole module (compile unit, jar file...). This makes a difference, and you have more freedom to structure your source code, and provide good public API of the component.
 
 For example, our [Customer component](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs/drestaurant-customer) classes are placed in one `com.drestaurant.customer.domain` package, with all classes marked as 'internal'.
-Public classes are placed in `com.drestaurant.customer.domain.api` and they are forming an API for this component. This API consist of [commands](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs/drestaurant-customer/src/main/kotlin/com/drestaurant/customer/domain/api) and [events](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs/drestaurant-common/src/main/kotlin/com/drestaurant/customer/domain/api) only.
+Public classes are placed in `com.drestaurant.customer.domain.api` and they are forming an API for this component. This API consist of [commands and events](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs/drestaurant-common/src/main/kotlin/com/drestaurant/customer/domain/api).
 
 ## Application/s layer
 
@@ -241,15 +241,18 @@ We have created more 'web' applications (standalone Spring Boot applications) to
 
  - [Microservices 1](#microservices-1-http-websockets-apache-kafka)
     - **HTTP and WebSockets API** by segregating Command and Query
+    - [Monolith 1](#monolith-1-http-and-websockets-api-by-segregating-command-and-query) as monolithic version
     - we don't synchronize on the backend
     - we provide WebSockets for the frontend to handle async nature of the backend
     - we use Apache Kafka to distribute events between services
  - [Microservices 2](#microservices-2-rest-rabbitmq)
     - **REST API** by not segregating Command and Query
+    - [Monolith 2](#monolith-2-rest-api-by-not-segregating-command-and-query) as monolithic version
     - we synchronize on the backend side
     - we use RabbitMQ to distribute events between services (bounded contexts)
  - [Microservices 3](#microservices-3-websockets-axondb-and-axonhub)
     - **WebSockets API**
+    - [Monolith 3](#monolith-3-stomp-over-websockets-api-we-are-async-all-the-way) as monolithic version
     - we are async all the way
     - we use [AxonHub](https://axoniq.io/product-overview/axonhub) to distribute events/messages between services
       
@@ -398,15 +401,6 @@ Frontend part of the solution is available here [http://idugalic.github.io/digit
 
 Source code: [https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-monolith-rest](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-monolith-rest)
 
-Sometimes, you are simply being required to deliver REST API.
-
-A recurring question with CQRS and EventSourcing is how to put a synchronous REST front-end on top of an asynchronous CQRS back-end.
-
-In general there are two approaches:
-
- - **segregating Command and Query** - resources representing Commands (request for changes) and resources representing Query Models (the state of the domain) are decoupled
- - **not segregating Command and Query** - one-to-one relation between a Command Model resource and a Query Model resource
- 
 This application is using the second approach ('NOT segregating Command and Query') by exposing capabilities of our 'domain' via the REST API components that are responsible for
  
  - dispatching commands - [CommandController](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-monolith-rest/src/main/kotlin/com/drestaurant/web/CommandController.kt)
@@ -414,7 +408,7 @@ This application is using the second approach ('NOT segregating Command and Quer
 
 
 **We create one-to-one relation between a Command Model resource and a Query Model (materialized view) resource.**
-Note that we are utilizing Spring Rest Data project to implement REST API, and that will position us on the third level of [Richardson Maturity Model](https://martinfowler.com/articles/richardsonMaturityModel.html)
+We are using Spring Rest Data project to implement REST API, which will position us on the third level of [Richardson Maturity Model](https://martinfowler.com/articles/richardsonMaturityModel.html)
 
 [Event handler](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-monolith-rest/src/main/kotlin/com/drestaurant/query/handler) is a central component. It consumes events, and creates Query Model / materialized views of aggregates.
 Additionally, it will emit 'any change on Query Model' to Axon subscription queries, and let us subscribe on them within our [CommandController](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-monolith-rest/src/main/kotlin/com/drestaurant/web/CommandController.kt) keeping our architecture clean.
@@ -591,14 +585,16 @@ WebSocket SockJS endpoint: `ws://localhost:8080/drestaurant/websocket`
 
 ### Microservices 1 (HTTP, Websockets, Apache Kafka)
 
-We designed and structured our loosely coupled components in a modular way, 
-and that enables us to choose different deployment strategy and take first step towards Microservices architectural style.
+We designed and structured our [domain components](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs) in a modular way, 
+and that enable us to choose different deployment strategy and decompose [Monolith 1](#monolith-1-http-and-websockets-api-by-segregating-command-and-query) to microservices. 
 
 Each [microservice](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-microservices):
 
  - has its own bounded context,
  - has its own JPA event store (we are not sharing the JPA Event Store between service)
- - and we distribute events between them via Apache Kafka (we do not use Kafka as event(sourcing) store)
+ - we distribute events between them via Apache Kafka (we do not use Kafka as event(sourcing) store)
+ - and we distribute commands (Command Bus) by Spring Cloud discovery and registry service (Eureka) 
+
  
 #### Apache Kafka
 
@@ -705,14 +701,17 @@ curl http://localhost:8085/api/query
 
 ### Microservices 2 (REST, RabbitMQ)
 
-We designed and structured our [loosely coupled components](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs) in a modular way, 
-and that enable us to choose different deployment strategy and take first step towards Microservices architectural style.
+We designed and structured our [domain components](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs) in a modular way, 
+and that enable us to choose different deployment strategy and decompose [Monolith 2](#monolith-2-rest-api-by-not-segregating-command-and-query) to microservices. 
+
 
 Each [microservice](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-microservices-rest):
 
  - has its own bounded context,
  - has its own JPA event(sourcing) store (we are not sharing the JPA Event Store)
- - and we distribute events between them via RabbitMQ
+ - we distribute events between them via RabbitMQ
+ - and we distribute commands (Command Bus) by Spring Cloud discovery and registry service (Eureka) 
+
  
 #### RabbitMQ
 
@@ -824,14 +823,14 @@ curl -i -X POST --header 'Content-Type: application/json' --header 'Accept: */*'
  
 ### Microservices 3 (Websockets, AxonDB and AxonHub)
 
-We designed and structured our [loosely coupled components](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs) in a modular way, 
-and that enable us to choose different deployment strategy and take first step towards Microservices architectural style.
+We designed and structured our [domain components](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs) in a modular way, 
+and that enable us to choose different deployment strategy and decompose [Monolith 3](#monolith-3-stomp-over-websockets-api-we-are-async-all-the-way) to microservices. 
 
 Each [microservice](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-apps/drestaurant-microservices-rest):
 
  - has its own bounded context,
  - has shared event(sourcing) storage (AxonDB)
- - and we distribute messages between them via AxonHub
+ - and we distribute messages (events, commands, queries) between them via AxonHub
  
 #### AxonHub
 
@@ -953,6 +952,8 @@ NOTE: Docker is required. We use it to start Apache Kafka with Zookeeper
 ```bash
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices
 $ docker-compose up -d
+$ cd digital-restaurant/drestaurant-apps/drestaurant-microservices/drestaurant-microservices-discovery-server
+$ mvn spring-boot:run
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices/drestaurant-microservices-command-courier
 $ mvn spring-boot:run
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices/drestaurant-microservices-command-customer
@@ -971,6 +972,8 @@ NOTE: Docker is required. We use it to start RabbitMQ
 
 ```bash
 $ docker run -d --hostname my-rabbit --name some-rabbit -p 15672:15672 -p 5672:5672 rabbitmq:3-management
+$ cd digital-restaurant/drestaurant-apps/drestaurant-microservices-rest/drestaurant-microservices-rest-courier
+$ mvn spring-boot:run
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices-rest/drestaurant-microservices-rest-courier
 $ mvn spring-boot:run
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices-rest/drestaurant-microservices-rest-customer
@@ -1038,3 +1041,8 @@ This setup and project structure is usually addressed as a [monorepo](https://me
 [rabbitMQ]: https://www.rabbitmq.com/
 [kafka]: https://kafka.apache.org/
 [pivotalCF]: https://run.pivotal.io/
+
+---
+Created by [Ivan Dugalic][idugalic]
+
+[idugalic]: http://idugalic.pro

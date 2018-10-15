@@ -11,7 +11,6 @@ import org.axonframework.commandhandling.model.AggregateIdentifier
 import org.axonframework.commandhandling.model.AggregateLifecycle.apply
 import org.axonframework.eventsourcing.EventSourcingHandler
 import org.axonframework.spring.stereotype.Aggregate
-import java.math.BigDecimal
 
 @Aggregate(snapshotTriggerDefinition = "customerOrderSnapshotTriggerDefinition")
 internal class CustomerOrder {
@@ -31,11 +30,11 @@ internal class CustomerOrder {
 
     @CommandHandler
     constructor(command: CreateCustomerOrderCommand) {
-        apply(CustomerOrderCreationInitiatedEvent(command.orderTotal, command.customerId, command.targetAggregateIdentifier, command.auditEntry))
+        apply(CustomerOrderCreationInitiatedInternalEvent(command.orderTotal, command.customerId, command.targetAggregateIdentifier, command.auditEntry))
     }
 
     @EventSourcingHandler
-    fun on(event: CustomerOrderCreationInitiatedEvent) {
+    fun on(event: CustomerOrderCreationInitiatedInternalEvent) {
         this.id = event.aggregateIdentifier
         this.customerId = event.customerId
         this.orderTotal = event.orderTotal
@@ -43,7 +42,7 @@ internal class CustomerOrder {
     }
 
     @CommandHandler
-    fun markOrderAsCreated(command: MarkCustomerOrderAsCreatedCommand) {
+    fun markOrderAsCreated(command: MarkCustomerOrderAsCreatedInternalCommand) {
         if (CustomerOrderState.CREATE_PENDING == state) {
             apply(CustomerOrderCreatedEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -58,7 +57,7 @@ internal class CustomerOrder {
     }
 
     @CommandHandler
-    fun markOrderAsRejected(command: MarkCustomerOrderAsRejectedCommand) {
+    fun markOrderAsRejected(command: MarkCustomerOrderAsRejectedInternalCommand) {
         if (CustomerOrderState.CREATE_PENDING == state) {
             apply(CustomerOrderRejectedEvent(command.targetAggregateIdentifier, command.auditEntry))
         } else {
@@ -85,16 +84,10 @@ internal class CustomerOrder {
         this.state = CustomerOrderState.DELIVERED
     }
 
-    override fun toString(): String {
-        return ToStringBuilder.reflectionToString(this)
-    }
+    override fun toString(): String = ToStringBuilder.reflectionToString(this)
 
-    override fun equals(other: Any?): Boolean {
-        return EqualsBuilder.reflectionEquals(this, other)
-    }
+    override fun equals(other: Any?): Boolean = EqualsBuilder.reflectionEquals(this, other)
 
-    override fun hashCode(): Int {
-        return HashCodeBuilder.reflectionHashCode(this)
-    }
+    override fun hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 
 }

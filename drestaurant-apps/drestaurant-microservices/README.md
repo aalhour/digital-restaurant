@@ -1,5 +1,7 @@
 ### Microservices / HTTP & Websockets / Apache Kafka
 
+*This is a thin layer which coordinates the application activity. It does not contain business logic. It does not hold the state of the business objects*
+
 We designed and structured our [loosely coupled components](https://github.com/idugalic/digital-restaurant/tree/master/drestaurant-libs) in a modular way, 
 and that enable us to choose different deployment strategy and take first step towards Microservices architectural style.
 
@@ -7,7 +9,8 @@ Each [microservice](https://github.com/idugalic/digital-restaurant/tree/master/d
 
  - has its own bounded context,
  - has its own JPA event(sourcing) store (we are not sharing the JPA Event Store)
- - and we distribute events between them via Apache Kafka (we do not use Kafka as event(sourcing) store)
+ - we distribute events between them via Apache Kafka (we do not use Kafka as event(sourcing) store)
+ - and we distribute commands (Command Bus) by Spring Cloud discovery and registry service (Eureka) 
  
 #### Apache Kafka
 
@@ -138,6 +141,8 @@ NOTE: Docker is required. We use it to start Apache Kafka with Zookeeper
 ```bash
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices
 $ docker-compose up -d
+$ cd digital-restaurant/drestaurant-apps/drestaurant-microservices/drestaurant-microservices-discovery-server
+$ mvn spring-boot:run
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices/drestaurant-microservices-command-courier
 $ mvn spring-boot:run
 $ cd digital-restaurant/drestaurant-apps/drestaurant-microservices/drestaurant-microservices-command-customer
